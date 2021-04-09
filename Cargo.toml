@@ -1,0 +1,12 @@
+[package]
+name = "stack-buf"
+version = "0.1.0"
+authors = ["David Li <davidli2010@foxmail.com>"]
+edition = "2018"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+description = "Vector-like facade for arrays allocated entirely on the stack."
+keywords = ["stack", "vector", "vec", "array"]
+categories = ["data-structures"]
+repository = "https://github.com/davidli2010/stack-buf.git"
+homepage = "https://github.com/davidli2010/stack-buf"
