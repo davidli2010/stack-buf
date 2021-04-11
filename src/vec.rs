@@ -326,7 +326,7 @@ impl<T, const N: usize> StackVec<T, N> {
     /// ```
     /// use stack_buf::{StackVec, stack_vec};
     ///
-    /// let mut vec: StackVec<_, 5> = stack_vec![1, 2, 3];
+    /// let mut vec = stack_vec![5#1, 2, 3];
     /// vec.insert(1, 4);
     /// assert_eq!(&vec[..], [1, 4, 2, 3]);
     /// vec.insert(4, 5);
@@ -508,7 +508,7 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
     ///
     /// ```
     /// use stack_buf::{StackVec, stack_vec};
-    /// let mut vec: StackVec<i32, 10> = stack_vec![1];
+    /// let mut vec = stack_vec![10#1];
     /// vec.extend_from_slice(&[2, 3, 4]);
     /// assert_eq!(vec.as_slice(), [1, 2, 3, 4]);
     /// ```
@@ -711,26 +711,43 @@ impl<const N: usize> std::io::Write for StackVec<u8, N> {
 ///
 /// ```
 /// use stack_buf::{StackVec, stack_vec};
+///
 /// let vec: StackVec<i32, 8> = stack_vec![];
 /// assert!(vec.is_empty());
+/// assert_eq!(vec.capacity(), 8);
+///
+/// let vec = stack_vec![i32; 16];
+/// assert!(vec.is_empty());
+/// assert_eq!(vec.capacity(), 16);
 /// ```
 ///
 /// - Creates a [`StackVec`] containing a given list of elements:
 ///
 /// ```
 /// use stack_buf::{StackVec, stack_vec};
-/// let vec: StackVec<_, 128> = stack_vec![1, 2, 3];
+///
+/// let vec = stack_vec![128#1, 2, 3];
+/// assert_eq!(vec.capacity(), 128);
 /// assert_eq!(vec[0], 1);
 /// assert_eq!(vec[1], 2);
 /// assert_eq!(vec[2], 3);
+///
+/// let vec = stack_vec![1, 2, 3];
+/// assert_eq!(vec.capacity(), 3);
+///
 /// ```
 ///
 /// - Creates a [`StackVec`] from a given element and size:
 ///
 /// ```
 /// use stack_buf::{StackVec, stack_vec};
-/// let v: StackVec<_, 0x8000> = stack_vec![1; 3];
+///
+/// let v = stack_vec![0x8000#1; 3];
 /// assert_eq!(v.as_slice(), [1, 1, 1]);
+/// assert_eq!(v.capacity(), 0x8000);
+///
+/// let v = stack_vec![1; 3];
+/// assert_eq!(v.capacity(), 3);
 /// ```
 ///
 /// Note that unlike array expressions this syntax supports all elements
@@ -745,11 +762,18 @@ impl<const N: usize> std::io::Write for StackVec<u8, N> {
 #[macro_export]
 macro_rules! stack_vec {
     () => ($crate::StackVec::new());
+    ($ty: ty; $cap: literal) => ($crate::StackVec::<$ty, $cap>::new());
     ($elem:expr; $n:expr) => ({
-        $crate::StackVec::from_elem($elem, $n)
+        $crate::StackVec::<_, $n>::from_elem($elem, $n)
+    });
+    ($cap:literal# $elem:expr; $n:expr) => ({
+        $crate::StackVec::<_, $cap>::from_elem($elem, $n)
     });
     ($($x:expr),+ $(,)?) => ({
-        let mut vec = $crate::StackVec::new();
+        $crate::StackVec::from([$($x),+])
+    });
+    ($cap:literal# $($x:expr),+ $(,)?) => ({
+        let mut vec = $crate::StackVec::<_, $cap>::new();
         $(vec.push($x);)+
         vec
     });
