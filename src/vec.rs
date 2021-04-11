@@ -279,6 +279,7 @@ impl<T, const N: usize> StackVec<T, N> {
     /// vec.truncate(4);
     /// assert_eq!(&vec[..], &[1, 2, 3]);
     /// ```
+    #[inline]
     pub fn truncate(&mut self, len: usize) {
         if len > self.len() {
             return;
@@ -311,6 +312,137 @@ impl<T, const N: usize> StackVec<T, N> {
     #[inline]
     pub fn clear(&mut self) {
         self.truncate(0)
+    }
+
+    /// Inserts an element at position `index` within the vector, shifting all
+    /// elements after it to the right.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index > len` or the vector is full.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::{StackVec, stack_vec};
+    ///
+    /// let mut vec: StackVec<_, 5> = stack_vec![1, 2, 3];
+    /// vec.insert(1, 4);
+    /// assert_eq!(&vec[..], [1, 4, 2, 3]);
+    /// vec.insert(4, 5);
+    /// assert_eq!(&vec[..], [1, 4, 2, 3, 5]);
+    /// ```
+    #[inline]
+    pub fn insert(&mut self, index: usize, element: T) {
+        #[cold]
+        #[inline(never)]
+        fn assert_failed(index: usize, len: usize) -> ! {
+            panic!(
+                "insertion index (is {}) should be <= len (is {})",
+                index, len
+            );
+        }
+
+        let len = self.len();
+        if index > len {
+            assert_failed(index, len);
+        }
+        assert!(len < self.capacity());
+        unsafe {
+            let ptr = self.as_mut_ptr().add(index);
+            ptr::copy(ptr, ptr.offset(1), len - index);
+            ptr::write(ptr, element);
+            self.set_len(len + 1);
+        }
+    }
+
+    /// Removes and returns the element at position `index` within the vector,
+    /// shifting all elements after it to the left.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::StackVec;
+    ///
+    /// let mut vec = StackVec::from([1, 2, 3]);
+    /// assert_eq!(vec.remove(1), 2);
+    /// assert_eq!(&vec[..], [1, 3]);
+    /// ```
+    #[inline]
+    pub fn remove(&mut self, index: usize) -> T {
+        #[cold]
+        #[inline(never)]
+        fn assert_failed(index: usize, len: usize) -> ! {
+            panic!("removal index (is {}) should be < len (is {})", index, len);
+        }
+
+        let len = self.len();
+        if index >= len {
+            assert_failed(index, len);
+        }
+        unsafe {
+            let ret;
+            {
+                let ptr = self.as_mut_ptr().add(index);
+                ret = ptr::read(ptr);
+                ptr::copy(ptr.offset(1), ptr, len - index - 1);
+            }
+            self.set_len(len - 1);
+            ret
+        }
+    }
+
+    /// Removes an element from the vector and returns it.
+    ///
+    /// The removed element is replaced by the last element of the vector.
+    ///
+    /// This does not preserve ordering, but is O(1).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::StackVec;
+    ///
+    /// let mut v = StackVec::from(["foo", "bar", "baz", "qux"]);
+    ///
+    /// assert_eq!(v.swap_remove(1), "bar");
+    /// assert_eq!(&v[..], ["foo", "qux", "baz"]);
+    ///
+    /// assert_eq!(v.swap_remove(0), "foo");
+    /// assert_eq!(&v[..], ["baz", "qux"]);
+    /// ```
+    #[inline]
+    pub fn swap_remove(&mut self, index: usize) -> T {
+        #[cold]
+        #[inline(never)]
+        fn assert_failed(index: usize, len: usize) -> ! {
+            panic!(
+                "swap_remove index (is {}) should be < len (is {})",
+                index, len
+            );
+        }
+
+        let len = self.len();
+        if index >= len {
+            assert_failed(index, len);
+        }
+        unsafe {
+            // We replace self[index] with the last element. Note that if the
+            // bounds check above succeeds there must be a last element (which
+            // can be self[index] itself).
+            let last = ptr::read(self.as_ptr().add(len - 1));
+            let hole = self.as_mut_ptr().add(index);
+            self.set_len(len - 1);
+            ptr::replace(hole, last)
+        }
     }
 }
 
