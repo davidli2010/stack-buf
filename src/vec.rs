@@ -702,6 +702,14 @@ impl<const N: usize> std::io::Write for StackVec<u8, N> {
     }
 }
 
+impl<const N: usize> std::fmt::Write for StackVec<u8, N> {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        self.copy_from_slice(s.as_bytes());
+        Ok(())
+    }
+}
+
 /// Creates a [`StackVec`] containing the arguments.
 ///
 /// `stack_vec!` allows `StackVec`s to be defined with the same syntax as array expressions.
