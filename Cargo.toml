@@ -11,3 +11,6 @@ categories = ["data-structures"]
 repository = "https://github.com/davidli2010/stack-buf.git"
 homepage = "https://github.com/davidli2010/stack-buf"
 documentation = "https://docs.rs/stack-buf"
+
+[dependencies]
+serde = { version = "1.0", optional = true }

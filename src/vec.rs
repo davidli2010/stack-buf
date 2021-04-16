@@ -710,6 +710,64 @@ impl<const N: usize> std::fmt::Write for StackVec<u8, N> {
     }
 }
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+#[cfg(feature = "serde")]
+impl<T: Serialize, const N: usize> Serialize for StackVec<T, N> {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_seq(self.as_slice())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T: Deserialize<'de>, const N: usize> Deserialize<'de> for StackVec<T, N> {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::{Error, SeqAccess, Visitor};
+        use std::marker::PhantomData;
+
+        struct StackVecVisitor<'de, T: Deserialize<'de>, const N: usize>(
+            PhantomData<(&'de (), [T; N])>,
+        );
+
+        impl<'de, T: Deserialize<'de>, const N: usize> Visitor<'de> for StackVecVisitor<'de, T, N> {
+            type Value = StackVec<T, N>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an array with no more than {} items", N)
+            }
+
+            #[inline]
+            fn visit_seq<SA>(self, mut seq: SA) -> Result<Self::Value, SA::Error>
+            where
+                SA: SeqAccess<'de>,
+            {
+                let mut values = StackVec::<T, N>::new();
+
+                while let Some(value) = seq.next_element()? {
+                    if values.is_full() {
+                        return Err(SA::Error::invalid_length(N + 1, &self));
+                    }
+
+                    values.push(value);
+                }
+
+                Ok(values)
+            }
+        }
+
+        deserializer.deserialize_seq(StackVecVisitor::<T, N>(PhantomData))
+    }
+}
+
 /// Creates a [`StackVec`] containing the arguments.
 ///
 /// `stack_vec!` allows `StackVec`s to be defined with the same syntax as array expressions.
