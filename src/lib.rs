@@ -16,4 +16,4 @@
 
 mod vec;
 
-pub use vec::StackVec;
+pub use vec::{IntoIter, StackVec};

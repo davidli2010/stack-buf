@@ -705,9 +705,9 @@ impl<const N: usize> std::io::Write for StackVec<u8, N> {
     }
 }
 
-impl<const N: usize> std::fmt::Write for StackVec<u8, N> {
+impl<const N: usize> fmt::Write for StackVec<u8, N> {
     #[inline]
-    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
         self.copy_from_slice(s.as_bytes());
         Ok(())
     }
@@ -775,6 +775,140 @@ impl_range_index!(
     RangeTo<usize>,
     RangeToInclusive<usize>,
 );
+
+/// Iterate the `StackVec` with references to each element.
+///
+/// ```
+/// use stack_buf::StackVec;
+///
+/// let vec = StackVec::from([1, 2, 3]);
+///
+/// for ele in &vec {
+///     // ...
+/// }
+/// ```
+impl<'a, T, const N: usize> IntoIterator for &'a StackVec<T, N> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/// Iterate the `StackVec` with mutable references to each element.
+///
+/// ```
+/// use stack_buf::StackVec;
+///
+/// let mut vec = StackVec::from([1, 2, 3]);
+///
+/// for ele in &mut vec {
+///     // ...
+/// }
+/// ```
+impl<'a, T, const N: usize> IntoIterator for &'a mut StackVec<T, N> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
+/// Iterate the `StackVec` with each element by value.
+///
+/// The vector is consumed by this operation.
+///
+/// ```
+/// use stack_buf::StackVec;
+///
+/// for ele in StackVec::from([1, 2, 3]) {
+///     // ...
+/// }
+/// ```
+impl<T, const N: usize> IntoIterator for StackVec<T, N> {
+    type Item = T;
+    type IntoIter = IntoIter<T, N>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            vec: self,
+            index: 0,
+        }
+    }
+}
+
+/// An iterator that consumes a `StackVec` and yields its items by value.
+///
+/// Returned from [`StackVec::into_iter()`].
+pub struct IntoIter<T, const N: usize> {
+    vec: StackVec<T, N>,
+    index: usize,
+}
+
+impl<T, const N: usize> Iterator for IntoIter<T, N> {
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == self.vec.len() {
+            None
+        } else {
+            unsafe {
+                let index = self.index;
+                self.index = index + 1;
+                Some(ptr::read(self.vec.as_mut_ptr().add(index)))
+            }
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.vec.len() - self.index;
+        (len, Some(len))
+    }
+}
+
+impl<T, const N: usize> DoubleEndedIterator for IntoIter<T, N> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.index == self.vec.len() {
+            None
+        } else {
+            unsafe {
+                let new_len = self.vec.len() - 1;
+                self.vec.set_len(new_len);
+                Some(ptr::read(self.vec.as_mut_ptr().add(new_len)))
+            }
+        }
+    }
+}
+
+impl<T, const N: usize> ExactSizeIterator for IntoIter<T, N> {}
+
+impl<T, const N: usize> Drop for IntoIter<T, N> {
+    #[inline]
+    fn drop(&mut self) {
+        let index = self.index;
+        let len = self.vec.len();
+        unsafe {
+            self.vec.set_len(0);
+            let elements = slice::from_raw_parts_mut(self.vec.as_mut_ptr().add(index), len - index);
+            ptr::drop_in_place(elements);
+        }
+    }
+}
+
+impl<T: fmt::Debug, const N: usize> fmt::Debug for IntoIter<T, N> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_list().entries(&self.vec[self.index..]).finish()
+    }
+}
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
