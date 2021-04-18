@@ -11,6 +11,12 @@ Vector-like facade for arrays allocated entirely on the stack. Shallow wrapper a
 
 Please read the [`API docs here`](https://docs.rs/stack-buf).
 
+## Optional features
+
+### `serde`
+
+When this optional dependency is enabled, `StackVec` implements the `serde::Serialize` and `serde::Deserialize` traits.
+
 ## Rust Version
 
 This version of `stack-buf` requires Rust 1.51 or later.
