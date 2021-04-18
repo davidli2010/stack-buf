@@ -2,7 +2,10 @@ use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::{Deref, DerefMut};
+use std::ops::{
+    Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
+    RangeToInclusive,
+};
 use std::{fmt, ptr, slice};
 
 type Size = u32;
@@ -709,6 +712,69 @@ impl<const N: usize> std::fmt::Write for StackVec<u8, N> {
         Ok(())
     }
 }
+
+impl<T, const N: usize> Index<usize> for StackVec<T, N> {
+    type Output = T;
+
+    #[inline]
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.as_slice()[index]
+    }
+}
+
+impl<T, const N: usize> IndexMut<usize> for StackVec<T, N> {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.as_mut_slice()[index]
+    }
+}
+
+impl<T, const N: usize> Index<RangeFull> for StackVec<T, N> {
+    type Output = [T];
+
+    #[inline]
+    fn index(&self, _index: RangeFull) -> &Self::Output {
+        self.as_slice()
+    }
+}
+
+impl<T, const N: usize> IndexMut<RangeFull> for StackVec<T, N> {
+    #[inline]
+    fn index_mut(&mut self, _index: RangeFull) -> &mut Self::Output {
+        self.as_mut_slice()
+    }
+}
+
+macro_rules! impl_range_index {
+    ($idx_ty: ty) => {
+        impl<T, const N: usize> Index<$idx_ty> for StackVec<T, N> {
+            type Output = [T];
+
+            #[inline]
+            fn index(&self, index: $idx_ty) -> &Self::Output {
+                &self.as_slice()[index]
+            }
+        }
+
+        impl<T, const N: usize> IndexMut<$idx_ty> for StackVec<T, N> {
+            #[inline]
+            fn index_mut(&mut self, index: $idx_ty) -> &mut Self::Output {
+                &mut self.as_mut_slice()[index]
+            }
+        }
+    };
+    ($($idx_ty: ty),+ $(,)?) => {
+        $(impl_range_index!($idx_ty);)+
+    }
+}
+
+impl_range_index!(
+    Range<usize>,
+    RangeFrom<usize>,
+    RangeInclusive<usize>,
+    RangeTo<usize>,
+    RangeToInclusive<usize>,
+);
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
