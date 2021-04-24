@@ -464,6 +464,7 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
     /// let vec = StackVec::<char, 128>::from_elem('d', 2);
     /// assert_eq!(vec.as_slice(), ['d', 'd']);
     /// ```
+    #[inline]
     pub fn from_elem(elem: T, n: usize) -> Self {
         let mut vec = StackVec::<T, N>::new();
         vec.push_elem(elem, n);
@@ -486,6 +487,7 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
     /// vec.push_elem('d', 2);
     /// assert_eq!(vec.as_slice(), ['a', 'd', 'd']);
     /// ```
+    #[inline]
     pub fn push_elem(&mut self, elem: T, n: usize) {
         assert!(self.remaining_capacity() >= n);
         unsafe {
@@ -515,6 +517,7 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
     /// vec.extend_from_slice(&[2, 3, 4]);
     /// assert_eq!(vec.as_slice(), [1, 2, 3, 4]);
     /// ```
+    #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
         assert!(self.remaining_capacity() >= other.len());
         unsafe {
@@ -524,6 +527,44 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
                 ptr::write(ptr.offset(local_len.local_len as isize), elem.clone());
                 local_len.increment_len(1);
             }
+        }
+    }
+
+    /// Resizes the `Vec` in-place so that `len` is equal to `new_len`.
+    ///
+    /// If `new_len` is greater than `len`, the `Vec` is extended by the
+    /// difference, with each additional slot filled with `value`.
+    /// If `new_len` is less than `len`, the `Vec` is simply truncated.
+    ///
+    /// This method requires `T` to implement [`Clone`],
+    /// in order to be able to clone the passed value.
+    ///
+    /// # Panics
+    ///
+    /// This function will be panic if `new_len > self.capacity()`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::{StackVec, stack_vec};
+    ///
+    /// let mut vec = stack_vec![5#"hello"];
+    /// vec.resize(3, "world");
+    /// assert_eq!(&vec[..], ["hello", "world", "world"]);
+    ///
+    /// let mut vec = stack_vec![1, 2, 3, 4];
+    /// vec.resize(2, 0);
+    /// assert_eq!(&vec[..], [1, 2]);
+    /// ```
+    #[inline]
+    pub fn resize(&mut self, new_len: usize, value: T) {
+        assert!(new_len <= self.capacity());
+        let len = self.len();
+
+        if new_len > len {
+            self.push_elem(value, new_len - len);
+        } else {
+            self.truncate(new_len);
         }
     }
 }
@@ -554,6 +595,7 @@ impl<T: Copy, const N: usize> StackVec<T, N> {
     /// assert_eq!(src, [1, 2, 3, 4]);
     /// assert_eq!(dst.as_slice(), [3, 4]);
     /// ```
+    #[inline]
     pub fn copy_from_slice(&mut self, src: &[T]) {
         assert!(self.remaining_capacity() >= src.len());
 
