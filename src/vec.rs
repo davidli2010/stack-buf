@@ -3,8 +3,8 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::{
-    Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
-    RangeToInclusive,
+    Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
+    RangeInclusive, RangeTo, RangeToInclusive,
 };
 use std::{fmt, ptr, slice};
 
@@ -48,6 +48,71 @@ impl<'a> Drop for SetLenOnDrop<'a> {
     #[inline]
     fn drop(&mut self) {
         *self.len = self.local_len;
+    }
+}
+
+/// A draining iterator for `StackVec<T, N>`.
+///
+/// This `struct` is created by [`StackVec::drain()`].
+pub struct Drain<'a, T: 'a, const N: usize> {
+    /// Index of tail to preserve
+    tail_start: usize,
+    /// Length of tail
+    tail_len: usize,
+    /// Current remaining range to remove
+    iter: slice::Iter<'a, T>,
+    vec: NonNull<StackVec<T, N>>,
+}
+
+unsafe impl<'a, T: Sync, const N: usize> Sync for Drain<'a, T, N> {}
+unsafe impl<'a, T: Send, const N: usize> Send for Drain<'a, T, N> {}
+
+impl<'a, T: 'a, const N: usize> Iterator for Drain<'a, T, N> {
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|elt| unsafe { ptr::read(elt as *const _) })
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a, T: 'a, const N: usize> DoubleEndedIterator for Drain<'a, T, N> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next_back()
+            .map(|elt| unsafe { ptr::read(elt as *const _) })
+    }
+}
+
+impl<'a, T: 'a, const N: usize> ExactSizeIterator for Drain<'a, T, N> {}
+
+impl<'a, T: 'a, const N: usize> Drop for Drain<'a, T, N> {
+    fn drop(&mut self) {
+        // len is currently 0 so panicking while dropping will not cause a double drop.
+
+        // exhaust self first
+        while let Some(_) = self.next() {}
+
+        if self.tail_len > 0 {
+            unsafe {
+                let source_vec = self.vec.as_mut();
+                // memmove back untouched tail, update to new length
+                let start = source_vec.len();
+                let tail = self.tail_start;
+                let src = source_vec.as_ptr().add(tail);
+                let dst = source_vec.as_mut_ptr().add(start);
+                ptr::copy(src, dst, self.tail_len);
+                source_vec.set_len(start + self.tail_len);
+            }
+        }
     }
 }
 
@@ -445,6 +510,70 @@ impl<T, const N: usize> StackVec<T, N> {
             let hole = self.as_mut_ptr().add(index);
             self.set_len(len - 1);
             ptr::replace(hole, last)
+        }
+    }
+
+    /// Create a draining iterator that removes the specified range in the vector
+    /// and yields the removed items from start to end. The element range is
+    /// removed even if the iterator is not consumed until the end.
+    ///
+    /// Note: It is unspecified how many elements are removed from the vector,
+    /// if the `Drain` value is leaked.
+    ///
+    /// # Panics
+    /// If the starting point is greater than the end point or if
+    /// the end point is greater than the length of the vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::StackVec;
+    ///
+    /// let mut v1 = StackVec::from([1, 2, 3]);
+    /// let v2: Vec<_> = v1.drain(0..2).collect();
+    /// assert_eq!(&v1[..], &[3]);
+    /// assert_eq!(&v2[..], &[1, 2]);
+    /// ```
+    pub fn drain<R>(&mut self, range: R) -> Drain<T, N>
+    where
+        R: RangeBounds<usize>,
+    {
+        // Memory safety
+        //
+        // When the Drain is first created, it shortens the length of
+        // the source vector to make sure no uninitialized or moved-from elements
+        // are accessible at all if the Drain's destructor never gets to run.
+        //
+        // Drain will ptr::read out the values to remove.
+        // When finished, remaining tail of the vec is copied back to cover
+        // the hole, and the vector length is restored to the new length.
+        //
+        let len = self.len();
+        let start = match range.start_bound() {
+            Bound::Unbounded => 0,
+            Bound::Included(&i) => i,
+            Bound::Excluded(&i) => i.saturating_add(1),
+        };
+        let end = match range.end_bound() {
+            Bound::Excluded(&j) => j,
+            Bound::Included(&j) => j.saturating_add(1),
+            Bound::Unbounded => len,
+        };
+
+        // bounds check happens here (before length is changed!)
+        let range_slice: *const _ = &self[start..end];
+
+        // Calling `set_len` creates a fresh and thus unique mutable references, making all
+        // older aliases we created invalid. So we cannot call that function.
+        self.len = start as Size;
+
+        unsafe {
+            Drain {
+                tail_start: end,
+                tail_len: len - end,
+                iter: (*range_slice).iter(),
+                vec: NonNull::new_unchecked(self as *mut _),
+            }
         }
     }
 }
@@ -964,6 +1093,7 @@ impl<T: fmt::Debug, const N: usize> fmt::Debug for IntoIter<T, N> {
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::ptr::NonNull;
 
 #[cfg(feature = "serde")]
 impl<T: Serialize, const N: usize> Serialize for StackVec<T, N> {
