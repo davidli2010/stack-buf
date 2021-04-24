@@ -530,7 +530,7 @@ impl<T, const N: usize> StackVec<T, N> {
     /// use stack_buf::StackVec;
     ///
     /// let mut v1 = StackVec::from([1, 2, 3]);
-    /// let v2: Vec<_> = v1.drain(0..2).collect();
+    /// let v2: StackVec<_, 3> = v1.drain(0..2).collect();
     /// assert_eq!(&v1[..], &[3]);
     /// assert_eq!(&v2[..], &[1, 2]);
     /// ```
@@ -957,6 +957,24 @@ impl_range_index!(
     RangeToInclusive<usize>,
 );
 
+impl<T, const N: usize> Extend<T> for StackVec<T, N> {
+    #[inline]
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for elem in iter.into_iter() {
+            self.push(elem);
+        }
+    }
+}
+
+impl<T, const N: usize> FromIterator<T> for StackVec<T, N> {
+    #[inline]
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut vec = StackVec::new();
+        vec.extend(iter);
+        vec
+    }
+}
+
 /// Iterate the `StackVec` with references to each element.
 ///
 /// ```
@@ -1093,6 +1111,7 @@ impl<T: fmt::Debug, const N: usize> fmt::Debug for IntoIter<T, N> {
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::iter::FromIterator;
 use std::ptr::NonNull;
 
 #[cfg(feature = "serde")]
