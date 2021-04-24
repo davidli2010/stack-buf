@@ -462,7 +462,7 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
     /// use stack_buf::StackVec;
     ///
     /// let vec = StackVec::<char, 128>::from_elem('d', 2);
-    /// assert_eq!(vec.as_slice(), ['d', 'd']);
+    /// assert_eq!(&vec[..], ['d', 'd']);
     /// ```
     #[inline]
     pub fn from_elem(elem: T, n: usize) -> Self {
@@ -485,7 +485,7 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
     /// let mut  vec = StackVec::<char, 10>::new();
     /// vec.push('a');
     /// vec.push_elem('d', 2);
-    /// assert_eq!(vec.as_slice(), ['a', 'd', 'd']);
+    /// assert_eq!(&vec[..], ['a', 'd', 'd']);
     /// ```
     #[inline]
     pub fn push_elem(&mut self, elem: T, n: usize) {
@@ -515,7 +515,7 @@ impl<T: Clone, const N: usize> StackVec<T, N> {
     /// use stack_buf::{StackVec, stack_vec};
     /// let mut vec = stack_vec![10#1];
     /// vec.extend_from_slice(&[2, 3, 4]);
-    /// assert_eq!(vec.as_slice(), [1, 2, 3, 4]);
+    /// assert_eq!(&vec[..], [1, 2, 3, 4]);
     /// ```
     #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
@@ -593,7 +593,7 @@ impl<T: Copy, const N: usize> StackVec<T, N> {
     /// dst.copy_from_slice(&src[2..]);
     ///
     /// assert_eq!(src, [1, 2, 3, 4]);
-    /// assert_eq!(dst.as_slice(), [3, 4]);
+    /// assert_eq!(&dst[..], [3, 4]);
     /// ```
     #[inline]
     pub fn copy_from_slice(&mut self, src: &[T]) {
@@ -715,6 +715,16 @@ where
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         **self == **other
+    }
+}
+
+impl<T, const N: usize> PartialEq<[T]> for StackVec<T, N>
+where
+    T: PartialEq,
+{
+    #[inline]
+    fn eq(&self, other: &[T]) -> bool {
+        **self == *other
     }
 }
 
