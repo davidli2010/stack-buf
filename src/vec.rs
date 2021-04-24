@@ -609,6 +609,82 @@ impl<T, const N: usize> StackVec<T, N> {
         }
         self.truncate(len - del);
     }
+
+    /// Removes all but the first of consecutive elements in the vector satisfying a given equality
+    /// relation.
+    ///
+    /// The `same_bucket` function is passed references to two elements from the vector and
+    /// must determine if the elements compare equal. The elements are passed in opposite order
+    /// from their order in the slice, so if `same_bucket(a, b)` returns `true`, `a` is removed.
+    ///
+    /// If the vector is sorted, this removes all duplicates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::stack_vec;
+    ///
+    /// let mut vec = stack_vec!["foo", "bar", "Bar", "baz", "bar"];
+    ///
+    /// vec.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+    ///
+    /// assert_eq!(&vec[..], ["foo", "bar", "baz", "bar"]);
+    /// ```
+    pub fn dedup_by<F>(&mut self, mut same_bucket: F)
+    where
+        F: FnMut(&mut T, &mut T) -> bool,
+    {
+        // See the implementation of Vec::dedup_by in the
+        // standard library for an explanation of this algorithm.
+        let len = self.len();
+        if len <= 1 {
+            return;
+        }
+
+        let ptr = self.as_mut_ptr();
+        let mut w: usize = 1;
+
+        unsafe {
+            for r in 1..len {
+                let p_r = ptr.add(r);
+                let p_wm1 = ptr.add(w - 1);
+                if !same_bucket(&mut *p_r, &mut *p_wm1) {
+                    if r != w {
+                        let p_w = p_wm1.add(1);
+                        std::mem::swap(&mut *p_r, &mut *p_w);
+                    }
+                    w += 1;
+                }
+            }
+        }
+
+        self.truncate(w);
+    }
+
+    /// Removes all but the first of consecutive elements in the vector that resolve to the same
+    /// key.
+    ///
+    /// If the vector is sorted, this removes all duplicates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::stack_vec;
+    ///
+    /// let mut vec = stack_vec![10, 20, 21, 30, 20];
+    ///
+    /// vec.dedup_by_key(|i| *i / 10);
+    ///
+    /// assert_eq!(&vec[..], [10, 20, 30, 20]);
+    /// ```
+    #[inline]
+    pub fn dedup_by_key<F, K>(&mut self, mut key: F)
+    where
+        F: FnMut(&mut T) -> K,
+        K: PartialEq,
+    {
+        self.dedup_by(|a, b| key(a) == key(b))
+    }
 }
 
 impl<T: Clone, const N: usize> StackVec<T, N> {
