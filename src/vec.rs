@@ -534,6 +534,7 @@ impl<T, const N: usize> StackVec<T, N> {
     /// assert_eq!(&v1[..], &[3]);
     /// assert_eq!(&v2[..], &[1, 2]);
     /// ```
+    #[inline]
     pub fn drain<R>(&mut self, range: R) -> Drain<T, N>
     where
         R: RangeBounds<usize>,
@@ -575,6 +576,38 @@ impl<T, const N: usize> StackVec<T, N> {
                 vec: NonNull::new_unchecked(self as *mut _),
             }
         }
+    }
+
+    /// Retains only the elements specified by the predicate.
+    ///
+    /// In other words, remove all elements `e` such that `f(&e)` returns `false`.
+    /// This method operates in place and preserves the order of the retained
+    /// elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stack_buf::StackVec;
+    ///
+    /// let mut vec = StackVec::from([1, 2, 3, 4]);
+    /// vec.retain(|x| *x & 1 != 0 );
+    /// assert_eq!(&vec[..], &[1, 3]);
+    /// ```
+    #[inline]
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        let mut del = 0;
+        let len = self.len();
+        for i in 0..len {
+            if !f(&mut self[i]) {
+                del += 1;
+            } else if del > 0 {
+                self.swap(i - del, i);
+            }
+        }
+        self.truncate(len - del);
     }
 }
 
