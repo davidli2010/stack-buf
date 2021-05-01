@@ -71,7 +71,7 @@ impl<const N: usize> FromUtf8Error<N> {
     /// # Examples
     ///
     /// ```
-    /// use stack_buf::{StackVec, stack_vec, StackStr};
+    /// use stack_buf::{stack_vec, StackStr};
     ///
     /// // some invalid bytes, in a vector
     /// let bytes = stack_vec![0, 159];
@@ -152,14 +152,14 @@ impl<const N: usize> StackStr<N> {
     ///
     /// # Examples
     ///
-    /// Basic usage:
-    ///
     /// ```
+    /// use stack_buf::{StackStr, stack_vec};
+    ///
     /// // some bytes, in a vector
-    /// let sparkle_heart = vec![240, 159, 146, 150];
+    /// let sparkle_heart = stack_vec![240, 159, 146, 150];
     ///
     /// // We know these bytes are valid, so we'll use `unwrap()`.
-    /// let sparkle_heart = String::from_utf8(sparkle_heart).unwrap();
+    /// let sparkle_heart = StackStr::from_utf8(sparkle_heart).unwrap();
     ///
     /// assert_eq!("💖", sparkle_heart);
     /// ```
@@ -167,19 +167,19 @@ impl<const N: usize> StackStr<N> {
     /// Incorrect bytes:
     ///
     /// ```
-    /// // some invalid bytes, in a vector
-    /// let sparkle_heart = vec![0, 159, 146, 150];
+    /// use stack_buf::{StackStr, stack_vec};
     ///
-    /// assert!(String::from_utf8(sparkle_heart).is_err());
+    /// // some invalid bytes, in a vector
+    /// let sparkle_heart = stack_vec![0, 159, 146, 150];
+    ///
+    /// assert!(StackStr::from_utf8(sparkle_heart).is_err());
     /// ```
     ///
     /// See the docs for [`FromUtf8Error`] for more details on what you can do
     /// with this error.
     ///
-    /// [`from_utf8_unchecked`]: String::from_utf8_unchecked
-    /// [`Vec<u8>`]: crate::vec::Vec
-    /// [`&str`]: prim@str
-    /// [`into_bytes`]: String::into_bytes
+    /// [`from_utf8_unchecked`]: StackStr::from_utf8_unchecked
+    /// [`into_bytes`]: StackStr::into_bytes
     #[inline]
     pub fn from_utf8(vec: StackVec<u8, N>) -> Result<Self, FromUtf8Error<N>> {
         match str::from_utf8(&vec) {
@@ -370,7 +370,7 @@ impl<const N: usize> StackStr<N> {
     ///
     /// The inverse of this method is [`from_utf8`].
     ///
-    /// [`from_utf8`]: String::from_utf8
+    /// [`from_utf8`]: StackStr::from_utf8
     ///
     /// # Examples
     ///
@@ -392,8 +392,8 @@ impl<const N: usize> StackStr<N> {
     ///
     /// This function is unsafe because it does not check that the bytes passed
     /// to it are valid UTF-8. If this constraint is violated, it may cause
-    /// memory unsafety issues with future users of the `String`, as the rest of
-    /// the standard library assumes that `String`s are valid UTF-8.
+    /// memory unsafety issues with future users of the `StackStr`, as the rest of
+    /// the standard library assumes that `StackStr`s are valid UTF-8.
     ///
     /// # Examples
     ///
@@ -1100,8 +1100,8 @@ impl<const N: usize> Hash for StackStr<N> {
 /// ```
 /// use stack_buf::StackStr;
 ///
-/// let a = String::from("hello");
-/// let b = String::from(" world");
+/// let a = StackStr::<16>::from("hello");
+/// let b = StackStr::<6>::from(" world");
 /// let c = a.clone() + &b;
 /// // `a` is still valid here.
 ///
