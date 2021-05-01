@@ -23,6 +23,7 @@
 //! This version of `stack-buf` requires Rust 1.51 or later.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(not(feature = "std"))]
 extern crate core as std;
