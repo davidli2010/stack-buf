@@ -1002,6 +1002,7 @@ impl<T: Ord, const N: usize> Ord for StackVec<T, N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const N: usize> std::io::Write for StackVec<u8, N> {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {

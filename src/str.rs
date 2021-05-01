@@ -1,7 +1,8 @@
 use crate::StackVec;
-use std::borrow::{Borrow, BorrowMut, Cow};
+#[cfg(feature = "std")]
+use std::borrow::Cow;
+use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
-use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign, Deref, DerefMut};
@@ -37,7 +38,8 @@ pub struct FromUtf8Error<const N: usize> {
     error: Utf8Error,
 }
 
-impl<const N: usize> Error for FromUtf8Error<N> {}
+#[cfg(feature = "std")]
+impl<const N: usize> std::error::Error for FromUtf8Error<N> {}
 
 impl<const N: usize> fmt::Display for FromUtf8Error<N> {
     #[inline]
@@ -929,6 +931,7 @@ impl<'a, const N: usize> Extend<&'a str> for StackStr<N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const N: usize> Extend<Box<str>> for StackStr<N> {
     #[inline]
     fn extend<I: IntoIterator<Item = Box<str>>>(&mut self, iter: I) {
@@ -936,6 +939,7 @@ impl<const N: usize> Extend<Box<str>> for StackStr<N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const N: usize> Extend<String> for StackStr<N> {
     #[inline]
     fn extend<I: IntoIterator<Item = String>>(&mut self, iter: I) {
@@ -943,6 +947,7 @@ impl<const N: usize> Extend<String> for StackStr<N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a, const N: usize> Extend<Cow<'a, str>> for StackStr<N> {
     #[inline]
     fn extend<I: IntoIterator<Item = Cow<'a, str>>>(&mut self, iter: I) {
@@ -977,6 +982,7 @@ impl<'a, const N: usize> FromIterator<&'a str> for StackStr<N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const N: usize> FromIterator<String> for StackStr<N> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
@@ -986,6 +992,7 @@ impl<const N: usize> FromIterator<String> for StackStr<N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const N: usize> FromIterator<Box<str>> for StackStr<N> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = Box<str>>>(iter: I) -> Self {
@@ -995,6 +1002,7 @@ impl<const N: usize> FromIterator<Box<str>> for StackStr<N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a, const N: usize> FromIterator<Cow<'a, str>> for StackStr<N> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = Cow<'a, str>>>(iter: I) -> Self {
@@ -1031,6 +1039,7 @@ impl<const N1: usize, const N2: usize> From<&StackStr<N2>> for StackStr<N1> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const N: usize> From<Box<str>> for StackStr<N> {
     /// Converts the given boxed `str` slice to a `StrackStr`.
     /// It is notable that the `str` slice is owned.
@@ -1054,6 +1063,7 @@ impl<const N: usize> From<Box<str>> for StackStr<N> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const N: usize> From<Cow<'_, str>> for StackStr<N> {
     #[inline]
     fn from(s: Cow<'_, str>) -> Self {

@@ -5,6 +5,10 @@
 //!
 //! ## Optional features
 //!
+//! ### `std`
+//!
+//! Enabled by default. Use std library; disable to use `no_std` instead.
+//!
 //! ### `str`
 //!
 //! When this optional dependency is enabled, `StackStr` is available.
@@ -17,6 +21,11 @@
 //! ## Rust Version
 //!
 //! This version of `stack-buf` requires Rust 1.51 or later.
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate core as std;
 
 mod vec;
 

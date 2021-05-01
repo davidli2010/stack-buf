@@ -13,6 +13,10 @@ Please read the [`API docs here`](https://docs.rs/stack-buf).
 
 ## Optional features
 
+### `std`
+
+Enabled by default. Use std library; disable to use `no_std` instead.
+
 ### `str`
 
 When this optional dependency is enabled, `StackStr` is available.
