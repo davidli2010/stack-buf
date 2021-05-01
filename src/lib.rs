@@ -5,9 +5,13 @@
 //!
 //! ## Optional features
 //!
+//! ### `str`
+//!
+//! When this optional dependency is enabled, `StackStr` is available.
+//!
 //! ### `serde`
 //!
-//! When this optional dependency is enabled, `StackVec` implements the `serde::Serialize` and
+//! When this optional dependency is enabled, `StackVec` and `StackStr` implement the `serde::Serialize` and
 //! `serde::Deserialize` traits.
 //!
 //! ## Rust Version
@@ -16,4 +20,10 @@
 
 mod vec;
 
-pub use vec::{Drain, IntoIter, StackVec};
+pub use crate::vec::{Drain, IntoIter, StackVec};
+
+#[cfg(feature = "str")]
+mod str;
+
+#[cfg(feature = "str")]
+pub use crate::str::{FromUtf8Error, StackStr};
