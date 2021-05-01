@@ -1003,6 +1003,7 @@ impl<T: Ord, const N: usize> Ord for StackVec<T, N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 impl<const N: usize> std::io::Write for StackVec<u8, N> {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
@@ -1246,6 +1247,7 @@ mod impl_serde {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::marker::PhantomData;
 
+    #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
     impl<T: Serialize, const N: usize> Serialize for StackVec<T, N> {
         #[inline]
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -1256,6 +1258,7 @@ mod impl_serde {
         }
     }
 
+    #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
     impl<'de, T: Deserialize<'de>, const N: usize> Deserialize<'de> for StackVec<T, N> {
         #[inline]
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

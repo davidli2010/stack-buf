@@ -32,6 +32,7 @@ use std::{fmt, ptr, str};
 /// assert!(value.is_err());
 /// assert_eq!(stack_vec![0, 159], value.unwrap_err().into_bytes());
 /// ```
+#[cfg_attr(docsrs, doc(cfg(feature = "str")))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FromUtf8Error<const N: usize> {
     bytes: StackVec<u8, N>,
@@ -39,6 +40,7 @@ pub struct FromUtf8Error<const N: usize> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<const N: usize> std::error::Error for FromUtf8Error<N> {}
 
 impl<const N: usize> fmt::Display for FromUtf8Error<N> {
@@ -115,6 +117,7 @@ impl<const N: usize> FromUtf8Error<N> {
 ///
 /// `N` is of type `usize` but is range limited to `u32::MAX`; attempting to create
 /// string with larger size will panic.
+#[cfg_attr(docsrs, doc(cfg(feature = "str")))]
 pub struct StackStr<const N: usize> {
     vec: StackVec<u8, N>,
 }
@@ -932,6 +935,7 @@ impl<'a, const N: usize> Extend<&'a str> for StackStr<N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<const N: usize> Extend<Box<str>> for StackStr<N> {
     #[inline]
     fn extend<I: IntoIterator<Item = Box<str>>>(&mut self, iter: I) {
@@ -940,6 +944,7 @@ impl<const N: usize> Extend<Box<str>> for StackStr<N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<const N: usize> Extend<String> for StackStr<N> {
     #[inline]
     fn extend<I: IntoIterator<Item = String>>(&mut self, iter: I) {
@@ -948,6 +953,7 @@ impl<const N: usize> Extend<String> for StackStr<N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<'a, const N: usize> Extend<Cow<'a, str>> for StackStr<N> {
     #[inline]
     fn extend<I: IntoIterator<Item = Cow<'a, str>>>(&mut self, iter: I) {
@@ -983,6 +989,7 @@ impl<'a, const N: usize> FromIterator<&'a str> for StackStr<N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<const N: usize> FromIterator<String> for StackStr<N> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
@@ -993,6 +1000,7 @@ impl<const N: usize> FromIterator<String> for StackStr<N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<const N: usize> FromIterator<Box<str>> for StackStr<N> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = Box<str>>>(iter: I) -> Self {
@@ -1003,6 +1011,7 @@ impl<const N: usize> FromIterator<Box<str>> for StackStr<N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<'a, const N: usize> FromIterator<Cow<'a, str>> for StackStr<N> {
     #[inline]
     fn from_iter<I: IntoIterator<Item = Cow<'a, str>>>(iter: I) -> Self {
@@ -1040,6 +1049,7 @@ impl<const N1: usize, const N2: usize> From<&StackStr<N2>> for StackStr<N1> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<const N: usize> From<Box<str>> for StackStr<N> {
     /// Converts the given boxed `str` slice to a `StrackStr`.
     /// It is notable that the `str` slice is owned.
@@ -1064,6 +1074,7 @@ impl<const N: usize> From<Box<str>> for StackStr<N> {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "str"))))]
 impl<const N: usize> From<Cow<'_, str>> for StackStr<N> {
     #[inline]
     fn from(s: Cow<'_, str>) -> Self {
@@ -1160,6 +1171,7 @@ mod impl_serde {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::marker::PhantomData;
 
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "str", feature = "serde"))))]
     impl<const N: usize> Serialize for StackStr<N> {
         #[inline]
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -1170,6 +1182,7 @@ mod impl_serde {
         }
     }
 
+    #[cfg_attr(docsrs, doc(cfg(all(feature = "str", feature = "serde"))))]
     impl<'de, const N: usize> Deserialize<'de> for StackStr<N> {
         #[inline]
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
