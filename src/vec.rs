@@ -1,11 +1,13 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::iter::FromIterator;
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::{
     Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
     RangeInclusive, RangeTo, RangeToInclusive,
 };
+use std::ptr::NonNull;
 use std::{fmt, ptr, slice};
 
 type Size = u32;
@@ -126,7 +128,7 @@ impl<'a, T: 'a, const N: usize> Drop for Drain<'a, T, N> {
 /// `StackVec` with larger capacity will panic.
 ///
 /// The vector is a contiguous value (storing the elements inline) that you can store directly on
-/// the stack if needed.
+/// the stack.
 ///
 /// It offers a simple API but also dereferences to a slice, so that the full slice API is
 /// available.
@@ -877,6 +879,22 @@ impl<T, const N: usize> From<[T; N]> for StackVec<T, N> {
     }
 }
 
+impl<T, const N: usize> Clone for StackVec<T, N>
+where
+    T: Clone,
+{
+    #[inline]
+    fn clone(&self) -> Self {
+        self.iter().cloned().collect()
+    }
+
+    #[inline]
+    fn clone_from(&mut self, source: &Self) {
+        self.clear();
+        self.extend_from_slice(source);
+    }
+}
+
 impl<T, const N: usize> Deref for StackVec<T, N> {
     type Target = [T];
 
@@ -946,12 +964,12 @@ where
     }
 }
 
-impl<T, const N: usize> PartialEq for StackVec<T, N>
+impl<T, const N1: usize, const N2: usize> PartialEq<StackVec<T, N2>> for StackVec<T, N1>
 where
     T: PartialEq,
 {
     #[inline]
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, other: &StackVec<T, N2>) -> bool {
         **self == **other
     }
 }
@@ -968,9 +986,11 @@ where
 
 impl<T, const N: usize> Eq for StackVec<T, N> where T: Eq {}
 
-impl<T: PartialOrd, const N: usize> PartialOrd for StackVec<T, N> {
+impl<T: PartialOrd, const N1: usize, const N2: usize> PartialOrd<StackVec<T, N2>>
+    for StackVec<T, N1>
+{
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &StackVec<T, N2>) -> Option<Ordering> {
         PartialOrd::partial_cmp(&**self, &**other)
     }
 }
@@ -1219,62 +1239,60 @@ impl<T: fmt::Debug, const N: usize> fmt::Debug for IntoIter<T, N> {
 }
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::iter::FromIterator;
-use std::ptr::NonNull;
+mod impl_serde {
+    use super::*;
+    use serde::de::{Error, SeqAccess, Visitor};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::marker::PhantomData;
 
-#[cfg(feature = "serde")]
-impl<T: Serialize, const N: usize> Serialize for StackVec<T, N> {
-    #[inline]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_seq(self.as_slice())
+    impl<T: Serialize, const N: usize> Serialize for StackVec<T, N> {
+        #[inline]
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.collect_seq(self.as_slice())
+        }
     }
-}
 
-#[cfg(feature = "serde")]
-impl<'de, T: Deserialize<'de>, const N: usize> Deserialize<'de> for StackVec<T, N> {
-    #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        use serde::de::{Error, SeqAccess, Visitor};
-        use std::marker::PhantomData;
+    impl<'de, T: Deserialize<'de>, const N: usize> Deserialize<'de> for StackVec<T, N> {
+        #[inline]
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct StackVecVisitor<'de, T: Deserialize<'de>, const N: usize>(
+                PhantomData<(&'de (), [T; N])>,
+            );
 
-        struct StackVecVisitor<'de, T: Deserialize<'de>, const N: usize>(
-            PhantomData<(&'de (), [T; N])>,
-        );
+            impl<'de, T: Deserialize<'de>, const N: usize> Visitor<'de> for StackVecVisitor<'de, T, N> {
+                type Value = StackVec<T, N>;
 
-        impl<'de, T: Deserialize<'de>, const N: usize> Visitor<'de> for StackVecVisitor<'de, T, N> {
-            type Value = StackVec<T, N>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "an array with no more than {} items", N)
-            }
-
-            #[inline]
-            fn visit_seq<SA>(self, mut seq: SA) -> Result<Self::Value, SA::Error>
-            where
-                SA: SeqAccess<'de>,
-            {
-                let mut values = StackVec::<T, N>::new();
-
-                while let Some(value) = seq.next_element()? {
-                    if values.is_full() {
-                        return Err(SA::Error::invalid_length(N + 1, &self));
-                    }
-
-                    values.push(value);
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    write!(formatter, "an array with no more than {} items", N)
                 }
 
-                Ok(values)
-            }
-        }
+                #[inline]
+                fn visit_seq<SA>(self, mut seq: SA) -> Result<Self::Value, SA::Error>
+                where
+                    SA: SeqAccess<'de>,
+                {
+                    let mut values = StackVec::<T, N>::new();
 
-        deserializer.deserialize_seq(StackVecVisitor::<T, N>(PhantomData))
+                    while let Some(value) = seq.next_element()? {
+                        if values.is_full() {
+                            return Err(SA::Error::invalid_length(N + 1, &self));
+                        }
+
+                        values.push(value);
+                    }
+
+                    Ok(values)
+                }
+            }
+
+            deserializer.deserialize_seq(StackVecVisitor::<T, N>(PhantomData))
+        }
     }
 }
 
